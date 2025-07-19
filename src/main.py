@@ -9,7 +9,7 @@ from grafo_bogota import crear_mapa_bogota
 from algoritmos_busqueda import BuscadorRutas, ResultadoBusqueda
 
 
-def mostrar_resultado_detallado(resultado: ResultadoBusqueda):
+def mostrar_resultado_detallado(resultado: ResultadoBusqueda, nombre_algoritmo):
     print("\n" + "=" * 60)
     print("RESULTADO DE LA BÚSQUEDA")
     print("=" * 60)
@@ -18,9 +18,7 @@ def mostrar_resultado_detallado(resultado: ResultadoBusqueda):
         print("❌ No se encontró una ruta válida")
         return
 
-    algoritmo_usado = getattr(resultado, "algoritmo", "No especificado")
-
-    print(f"✅ Algoritmo: {algoritmo_usado}")
+    print(f"✅ Algoritmo: {nombre_algoritmo}")
     print(f"📍 Ruta encontrada: {' → '.join(resultado.ruta)}")
     print(f"📏 Distancia total: {resultado.distancia_total:.2f} km")
     print(f"⏱️  Tiempo total: {resultado.tiempo_total:.2f} minutos")
@@ -123,15 +121,16 @@ def main():
             criterio = input("Criterio (distancia/tiempo): ").strip().lower()
 
             resultado = buscador.buscar(origen, destino, algoritmo="a*", criterio=criterio)
-            mostrar_resultado_detallado(resultado)
+            mostrar_resultado_detallado(resultado, "a*")
 
         elif opcion == "2":
             origen = input("Nombre del nodo origen: ").strip().upper()
             destino = input("Nombre del nodo destino: ").strip().upper()
             resultados = buscador.comparar_algoritmos(origen, destino)
-            for nombre, resultado in resultados.items():
-                print(f"\n▶️ {nombre}")
-                mostrar_resultado_detallado(resultado)
+            for nombre, value in resultados.items():
+                print(f"\n▶️  {nombre}")
+                print(f"\nTiempo {value['tiempo_ejecucion']}")
+                mostrar_resultado_detallado(value['resultado'], nombre)
 
         elif opcion == "3":
             ejecutar_pruebas_rendimiento(buscador)
