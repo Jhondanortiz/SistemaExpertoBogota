@@ -1,0 +1,14 @@
+REPORTE DETALLADO DEL SISTEMA EXPERTO DE RUTAS
+============================================================
+
+Fecha de generación: 2025-07-18 21:37:30
+Sistema: Búsqueda de Rutas en Bogotá
+Caso: UNIMINUTO Calle 80 ↔ UNIMINUTO Perdomo
+
+INFORMACIÓN DEL GRAFO
+------------------------------
+Número de nodos: 16
+Número de aristas: 56
+
+ANÁLISIS DE RUTAS PRINCIPALES
+------------------------------

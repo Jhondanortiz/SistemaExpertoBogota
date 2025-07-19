@@ -1,0 +1,10 @@
+REPORTE DETALLADO DEL SISTEMA EXPERTO DE RUTAS
+============================================================
+
+Fecha: 2025-07-18 22:39:48.972390
+Número de nodos: 16
+Número de aristas: 56
+
+ANÁLISIS DE RUTAS
+
+Reporte generado automáticamente.

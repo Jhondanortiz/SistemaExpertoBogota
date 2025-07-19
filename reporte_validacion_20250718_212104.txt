@@ -1,0 +1,19 @@
+=== REPORTE DE VALIDACIÓN ===
+Fecha: 2025-07-18 21:21:04
+Sistema: Sistema Experto de Rutas en Bogotá
+Universidad: UNIMINUTO
+
+RESUMEN:
+- Total de pruebas: 7
+- Exitosas: 5
+- Fallidas: 2
+- Porcentaje de éxito: 71.4%
+
+DETALLES:
+• Estructura de nodos: CORRECTO - 15 nodos
+• Conectividad: CORRECTO - Todos los nodos conectados
+• dijkstra-distancia: CORRECTO - 3 pasos, costo: 3.10
+• dijkstra-tiempo: CORRECTO - 3 pasos, costo: 9.00
+• a_estrella-distancia: ERROR - Ruta vacía
+• a_estrella-tiempo: ERROR - Ruta vacía
+• Prueba rendimiento: CORRECTO - 0.0003s, 4 pasos
