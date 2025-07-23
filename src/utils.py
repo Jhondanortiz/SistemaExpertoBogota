@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """
 Utilidades y constantes para el Sistema Experto de Rutas en Bogotá
-
-Autor: [Tu nombre]
-Universidad: UNIMINUTO
 """
 
 import time
