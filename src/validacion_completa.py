@@ -2,10 +2,6 @@
 """
 Validación Completa del Sistema Experto de Rutas en Bogotá
 Ejecuta todas las pruebas y genera un reporte completo para la entrega
-
-Autor: [Tu nombre]
-Universidad: UNIMINUTO
-Curso: [Nombre del curso]
 """
 
 import sys
