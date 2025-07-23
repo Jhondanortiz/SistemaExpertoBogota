@@ -1,0 +1,127 @@
+{
+  "PortalNorte": {
+    "descripcion": "Estación Portal del Norte",
+    "latitud": 4.7619,
+    "longitud": -74.0305
+  },
+  "UniversidadNacional": {
+    "descripcion": "Universidad Nacional de Colombia", 
+    "latitud": 4.6382,
+    "longitud": -74.0840
+  },
+  "CentroHistorico": {
+    "descripcion": "Centro Histórico de Bogotá",
+    "latitud": 4.5981,
+    "longitud": -74.0760
+  },
+  "PortalSur": {
+    "descripcion": "Estación Portal del Sur",
+    "latitud": 4.5795,
+    "longitud": -74.1512
+  },
+  "MuseoOro": {
+    "descripcion": "Museo del Oro",
+    "latitud": 4.6011,
+    "longitud": -74.0721
+  },
+  "Monserrate": {
+    "descripcion": "Cerro de Monserrate",
+    "latitud": 4.6050,
+    "longitud": -74.0552
+  },
+  "PlazaBolivar": {
+    "descripcion": "Plaza de Bolívar",
+    "latitud": 4.5983,
+    "longitud": -74.0760
+  },
+  "EstacionHeroes": {
+    "descripcion": "Estación Héroes",
+    "latitud": 4.6654,
+    "longitud": -74.0591
+  },
+  "CENTRO_BOGOTA": {
+    "descripcion": "Centro de Bogotá",
+    "latitud": 4.5981,
+    "longitud": -74.0758
+  },
+  "ZONA_ROSA": {
+    "descripcion": "Zona Rosa de Bogotá",
+    "latitud": 4.6631,
+    "longitud": -74.0606
+  },
+  "UNIMINUTO_CALLE_80": {
+    "descripcion": "Sede UNIMINUTO Calle 80",
+    "latitud": 4.7050,
+    "longitud": -74.0900
+  },
+  "UNIMINUTO_PERDOMO": {
+    "descripcion": "Sede UNIMINUTO Perdomo",
+    "latitud": 4.5820,
+    "longitud": -74.1390
+  },
+  "CIUDAD_UNIVERSITARIA": {
+    "descripcion": "Ciudad Universitaria de Bogotá",
+    "latitud": 4.6356,
+    "longitud": -74.0817
+  },
+  "RESTREPO": {
+    "descripcion": "Barrio Restrepo",
+    "latitud": 4.6013,
+    "longitud": -74.0936
+  },
+  "PERDOMO": {
+    "descripcion": "Barrio Perdomo",
+    "latitud": 4.5820,
+    "longitud": -74.1390
+  },
+  "PLAZA_LOURDES": {
+    "descripcion": "Plaza de Lourdes",
+    "latitud": 4.5970,
+    "longitud": -74.0800
+  },
+  "GRAN_ESTACION": {
+    "descripcion": "Centro Comercial Gran Estación",
+    "latitud": 4.6280,
+    "longitud": -74.1050
+  },
+  "USAQUEN": {
+    "descripcion": "Usaquén",
+    "latitud": 4.6951,
+    "longitud": -74.0308
+  },
+  "SUBA": {
+    "descripcion": "Localidad Suba",
+    "latitud": 4.7570,
+    "longitud": -74.0820
+  },
+  "ENGATIVA": {
+    "descripcion": "Localidad Engativá",
+    "latitud": 4.7180,
+    "longitud": -74.1070
+  },
+  "KENNEDY": {
+    "descripcion": "Localidad Kennedy",
+    "latitud": 4.6268,
+    "longitud": -74.1370
+  },
+  "BOSA": {
+    "descripcion": "Localidad Bosa",
+    "latitud": 4.6138,
+    "longitud": -74.1791
+  },
+  "TINTAL": {
+    "descripcion": "Biblioteca El Tintal",
+    "latitud": 4.6450,
+    "longitud": -74.1580
+  },
+  "CHAPINERO": {
+    "descripcion": "Localidad Chapinero",
+    "latitud": 4.6486,
+    "longitud": -74.0655
+  },
+  "FONTIBON": {
+    "descripcion": "Localidad Fontibón",
+    "latitud": 4.6796,
+    "longitud": -74.1429
+  }
+}
