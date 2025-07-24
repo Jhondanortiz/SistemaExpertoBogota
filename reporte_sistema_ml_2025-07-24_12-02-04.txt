@@ -1,0 +1,23 @@
+REPORTE DEL SISTEMA EXPERTO CON MACHINE LEARNING
+============================================================
+
+Fecha: 2025-07-24 12:02:04.741738
+Modelo entrenado: Sí
+
+MÉTRICAS DE MACHINE LEARNING:
+  Precisión temporal (MAE): 13.11 min
+  Mejora en rutas: 0.0%
+  Adaptabilidad: Inactiva
+
+MODELOS DISPONIBLES:
+  - Random Forest: MAE = 21.36 min
+  - Gradient Boosting: MAE = 12.17 min
+  - Linear Regression: MAE = 35.50 min
+  - Random Forest Optimizado: MAE = 21.66 min
+
+CAPACIDADES INTEGRADAS:
+  ✓ Predicción de tiempos dinámicos
+  ✓ Optimización inteligente de rutas
+  ✓ Análisis de patrones de tráfico
+  ✓ Aprendizaje continuo
+  ✓ Explicabilidad de decisiones
