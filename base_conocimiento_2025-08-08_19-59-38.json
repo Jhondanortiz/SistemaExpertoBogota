@@ -1,0 +1,137 @@
+{
+  "patrones": {
+    "hora_pico": {
+      "horas": [
+        [
+          7,
+          9
+        ],
+        [
+          17,
+          19
+        ]
+      ],
+      "impacto": "Aumenta tiempo de viaje en 40-80%",
+      "condicion": "Tráfico alto o muy alto"
+    },
+    "fin_semana": {
+      "dias": [
+        5,
+        6
+      ],
+      "impacto": "Reduce tiempo de viaje en 10-20%",
+      "condicion": "Tráfico bajo o medio"
+    },
+    "lluvia": {
+      "condicion_climatica": "lluvia",
+      "impacto": "Aumenta tiempo de viaje en 20-50%",
+      "condicion": "Clima adverso"
+    },
+    "madrugada": {
+      "horas": [
+        [
+          0,
+          5
+        ],
+        [
+          22,
+          23
+        ]
+      ],
+      "impacto": "Reduce tiempo de viaje en 20-30%",
+      "condicion": "Tráfico bajo"
+    },
+    "correlaciones": {
+      "tiempo_real": {
+        "tiempo_real": 1.0,
+        "hora_dia": 0.15049743633248222,
+        "dia_semana": -0.10767893788533076,
+        "distancia_base": 0.5288244435862098
+      },
+      "hora_dia": {
+        "tiempo_real": 0.15049743633248222,
+        "hora_dia": 1.0,
+        "dia_semana": -0.0061628124923042826,
+        "distancia_base": 0.026454045360096504
+      },
+      "dia_semana": {
+        "tiempo_real": -0.10767893788533076,
+        "hora_dia": -0.0061628124923042826,
+        "dia_semana": 1.0,
+        "distancia_base": 0.02362723829594042
+      },
+      "distancia_base": {
+        "tiempo_real": 0.5288244435862098,
+        "hora_dia": 0.026454045360096504,
+        "dia_semana": 0.02362723829594042,
+        "distancia_base": 1.0
+      }
+    }
+  },
+  "casos_uso": [
+    {
+      "id": "CU01",
+      "descripcion": "Viaje en hora pico de mañana",
+      "consulta": "Mejor ruta de UNIMINUTO_CALLE_80 a GRAN_ESTACION a las 8 AM",
+      "condiciones": {
+        "hora_dia": 8,
+        "dia_semana": 1,
+        "condicion_climatica": "soleado",
+        "nivel_trafico": "alto"
+      },
+      "respuestas_posibles": [
+        "Congestión alta esperada, tiempo estimado de X minutos",
+        "Considere rutas alternativas por avenidas secundarias",
+        "Evitar zonas de alta congestión"
+      ]
+    },
+    {
+      "id": "CU02",
+      "descripcion": "Viaje con lluvia en hora no pico",
+      "consulta": "Mejor ruta de UNIMINUTO_PERDOMO a RESTREPO a las 2 PM con lluvia",
+      "condiciones": {
+        "hora_dia": 14,
+        "dia_semana": 3,
+        "condicion_climatica": "lluvia",
+        "nivel_trafico": "medio"
+      },
+      "respuestas_posibles": [
+        "Lluvia incrementa el tiempo, estimado de X minutos",
+        "Evite zonas propensas a inundaciones",
+        "Ruta por avenidas principales recomendada"
+      ]
+    },
+    {
+      "id": "CU03",
+      "descripcion": "Viaje en fin de semana",
+      "consulta": "Mejor ruta de ZONA_ROSA a CHAPINERO a las 6 PM",
+      "condiciones": {
+        "hora_dia": 18,
+        "dia_semana": 5,
+        "condicion_climatica": "soleado",
+        "nivel_trafico": "bajo"
+      },
+      "respuestas_posibles": [
+        "Tráfico fluido por fin de semana, tiempo estimado de X minutos",
+        "Ruta directa recomendada",
+        "Condiciones óptimas para viajar"
+      ]
+    },
+    {
+      "id": "CU04",
+      "descripcion": "Viaje en madrugada con tráfico bajo",
+      "consulta": "Mejor ruta de USAQUEN a CENTRO_BOGOTA a las 3 AM",
+      "condiciones": {
+        "hora_dia": 3,
+        "dia_semana": 2,
+        "condicion_climatica": "nublado",
+        "nivel_trafico": "bajo"
+      },
+      "respuestas_posibles": [
+        "Tráfico muy bajo, tiempo estimado de X minutos",
+        "Ruta directa por Autopista Norte recomendada",
+        "Condiciones óptimas por madrugada"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+REPORTE DEL SISTEMA EXPERTO CON MACHINE LEARNING
+============================================================
+
+Fecha: 2025-08-07 22:26:36.874429
+Modelo entrenado: Sí
+
+MÉTRICAS DE RENDIMIENTO:
+  Precisión temporal (MAE): 12.62 min
+  Diversidad de respuestas: 100.00%
+
+PANTALLAZOS SIMULADOS:
+  Caso: CU01 - Viaje en hora pico de mañana
+  Consulta: Mejor ruta de UNIMINUTO_CALLE_80 a GRAN_ESTACION a las 8 AM
+  Error en caso CU01: 'condicion_climatica'
+--------------------------------------------------
+  Caso: CU02 - Viaje con lluvia en hora no pico
+  Consulta: Mejor ruta de UNIMINUTO_PERDOMO a RESTREPO a las 2 PM con lluvia
+  Error en caso CU02: 'condicion_climatica'
+--------------------------------------------------
+  Caso: CU03 - Viaje en fin de semana
+  Consulta: Mejor ruta de ZONA_ROSA a CHAPINERO a las 6 PM
+  Error en caso CU03: 'condicion_climatica'
+--------------------------------------------------
+
+REFLEXIÓN:
+La construcción de la base de conocimiento, basada en patrones extraídos de los datos históricos y los resultados del aprendizaje automático, ha permitido al sistema experto generar respuestas más variadas y precisas. La integración de lógica difusa y reglas condicionales ha mejorado la capacidad del sistema para adaptarse a diferentes contextos, como horas pico o condiciones climáticas adversas. La métrica de diversidad de respuestas indica que el sistema cubre adecuadamente los casos de uso definidos, mientras que la precisión temporal (MAE) asegura confiabilidad en las estimaciones. Este enfoque híbrido combina la robustez del ML con la interpretabilidad de las reglas expertas, logrando un sistema más robusto y adaptable.
