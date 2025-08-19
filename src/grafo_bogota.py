@@ -1,6 +1,12 @@
+import json
 import math
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+import networkx as nx
+import logging
+from utils import COORDENADAS_BOGOTA, CONEXIONES, EMOJIS, validar_nodo
 
+# Configurar logging
+logger = logging.getLogger(__name__)
 
 class Nodo:
     def __init__(self, nombre: str, latitud: float, longitud: float, descripcion: Optional[str] = None):
@@ -15,7 +21,6 @@ class Nodo:
     def __repr__(self):
         return self.__str__()
 
-
 class Arista:
     def __init__(self, destino: str, distancia: float, tiempo: float):
         self.destino = destino
@@ -23,153 +28,161 @@ class Arista:
         self.tiempo = tiempo
 
     def __str__(self):
-        return f"{self.destino} (Distancia: {self.distancia} km, Tiempo: {self.tiempo} min)"
-
+        return f"{self.destino} (Distancia: {self.distancia:.1f} km, Tiempo: {self.tiempo:.1f} min)"
 
 class GrafoBogota:
     def __init__(self):
         self.nodos: Dict[str, Nodo] = {}
         self.grafo: Dict[str, List[Arista]] = {}
+        self.nx_grafo = nx.Graph()
 
     def agregar_nodo(self, nodo: Nodo):
+        if not validar_nodo(nodo.nombre):
+            logger.warning(f"{EMOJIS['advertencia']} Nodo inválido ignorado: {nodo.nombre}")
+            return
         if nodo.nombre not in self.nodos:
             self.nodos[nodo.nombre] = nodo
             self.grafo[nodo.nombre] = []
-            print(f"Nodo agregado: {nodo}")
+            self.nx_grafo.add_node(nodo.nombre, pos=(nodo.latitud, nodo.longitud))
+            logger.info(f"{EMOJIS['exito']} Nodo agregado: {nodo}")
         else:
-            print(f"⚠️ Nodo duplicado ignorado: {nodo.nombre}")
+            logger.warning(f"{EMOJIS['advertencia']} Nodo duplicado ignorado: {nodo.nombre}")
 
     def agregar_nodo_por_datos(self, nombre: str, latitud: float, longitud: float, descripcion: Optional[str] = None):
+        if not validar_nodo(nombre):
+            logger.warning(f"{EMOJIS['advertencia']} Nodo inválido ignorado: {nombre}")
+            return
         self.agregar_nodo(Nodo(nombre, latitud, longitud, descripcion))
 
     def agregar_arista(self, origen: str, destino: str, distancia: float, tiempo: float):
+        if not (validar_nodo(origen) and validar_nodo(destino)):
+            logger.error(f"{EMOJIS['error']} No se pudo agregar arista: {origen} -> {destino} (nodo inválido)")
+            return
         if origen not in self.grafo:
             self.grafo[origen] = []
         if destino not in self.grafo:
             self.grafo[destino] = []
-
         if origen in self.nodos and destino in self.nodos:
             arista = Arista(destino, distancia, tiempo)
             self.grafo[origen].append(arista)
-            print(f"Arista agregada: {origen} -> {arista}")
+            self.nx_grafo.add_edge(origen, destino, weight=distancia, time=tiempo)
+            logger.info(f"{EMOJIS['exito']} Arista agregada: {origen} -> {arista}")
         else:
-            print(f"❌ No se pudo agregar arista: {origen} -> {destino} (nodo no encontrado)")
+            logger.error(f"{EMOJIS['error']} No se pudo agregar arista: {origen} -> {destino} (nodo no encontrado)")
 
     def agregar_arista_bidireccional(self, nodo1: str, nodo2: str, distancia: float, tiempo: float):
         self.agregar_arista(nodo1, nodo2, distancia, tiempo)
         self.agregar_arista(nodo2, nodo1, distancia, tiempo)
 
     def obtener_vecinos(self, nodo: str) -> List[Arista]:
+        if not validar_nodo(nodo):
+            logger.warning(f"{EMOJIS['advertencia']} Nodo inválido: {nodo}")
+            return []
         return self.grafo.get(nodo, [])
 
     def calcular_distancia_euclidiana(self, nodo1: str, nodo2: str) -> float:
+        if not (validar_nodo(nodo1) and validar_nodo(nodo2)):
+            logger.warning(f"{EMOJIS['advertencia']} Nodo inválido: {nodo1} o {nodo2}")
+            return float('inf')
         if nodo1 not in self.nodos or nodo2 not in self.nodos:
+            logger.warning(f"{EMOJIS['advertencia']} Nodo no encontrado: {nodo1} o {nodo2}")
             return float('inf')
         n1 = self.nodos[nodo1]
         n2 = self.nodos[nodo2]
         lat_diff = n2.latitud - n1.latitud
         lon_diff = n2.longitud - n1.longitud
-        km_por_grado = 111.32
+        # Factor de conversión ajustado para Bogotá (aproximadamente a 2600 m de altitud)
+        km_por_grado = 111.139  # Más preciso para latitudes cercanas al ecuador
         return math.sqrt(lat_diff ** 2 + lon_diff ** 2) * km_por_grado
 
     def obtener_costo_arista(self, origen: str, destino: str, criterio: str = 'distancia') -> float:
+        if not (validar_nodo(origen) and validar_nodo(destino)):
+            logger.warning(f"{EMOJIS['advertencia']} Nodo inválido: {origen} o {destino}")
+            raise ValueError(f"Nodo inválido: {origen} o {destino}")
         for arista in self.obtener_vecinos(origen):
             if arista.destino == destino:
                 return arista.distancia if criterio == 'distancia' else arista.tiempo
         raise ValueError(f"No existe arista de {origen} a {destino}")
 
-    # ✅ MÉTODOS REQUERIDOS POR ALGORTIMOS DE BÚSQUEDA
     def adyacencias(self, nodo: str) -> List[str]:
+        if not validar_nodo(nodo):
+            logger.warning(f"{EMOJIS['advertencia']} Nodo inválido: {nodo}")
+            return []
         return [arista.destino for arista in self.obtener_vecinos(nodo)]
 
     def obtener_peso(self, origen: str, destino: str) -> float:
         return self.obtener_costo_arista(origen, destino, criterio='distancia')
 
     def mostrar_grafo(self):
-        print("\n=== GRAFO DE BOGOTÁ ===")
+        logger.info(f"\n{EMOJIS['mapa']} GRAFO DE BOGOTÁ")
+        logger.info(f"Nodos totales: {len(self.nodos)}")
+        logger.info(f"Aristas totales: {self.nx_grafo.number_of_edges()}")
         for nodo in self.nodos.values():
-            print(f"\n{nodo}")
-            for arista in self.obtener_vecinos(nodo.nombre):
-                print(f"  {arista}")
+            logger.info(f"\n{nodo}")
+            vecinos = self.obtener_vecinos(nodo.nombre)
+            if vecinos:
+                for arista in vecinos:
+                    logger.info(f"  {arista}")
+            else:
+                logger.info("  (Sin conexiones)")
 
+def cargar_coordenadas(archivo_json: str = "src/coordenadas_bogota.json") -> Dict[str, Dict[str, float]]:
+    """Carga las coordenadas de los nodos desde un archivo JSON, alineado con COORDENADAS_BOGOTA."""
+    try:
+        with open(archivo_json, 'r', encoding='utf-8') as file:
+            coordenadas = json.load(file)
+        resultado = {}
+        for nombre, coords in coordenadas.items():
+            if not validar_nodo(nombre):
+                logger.warning(f"{EMOJIS['advertencia']} Nodo inválido en {archivo_json}: {nombre}")
+                continue
+            if isinstance(coords, dict) and 'latitud' in coords and 'longitud' in coords:
+                lat, lon = coords['latitud'], coords['longitud']
+            elif isinstance(coords, (list, tuple)) and len(coords) == 2:
+                lat, lon = coords
+            else:
+                logger.warning(f"{EMOJIS['advertencia']} Formato inválido para el nodo {nombre} en {archivo_json}: {coords}")
+                lat, lon = COORDENADAS_BOGOTA.get(nombre, {}).get('latitud'), COORDENADAS_BOGOTA.get(nombre, {}).get('longitud')
+            if not (isinstance(lat, (int, float)) and isinstance(lon, (int, float))):
+                logger.warning(f"{EMOJIS['advertencia']} Coordenadas inválidas para {nombre}: {coords}. Usando respaldo.")
+                lat, lon = COORDENADAS_BOGOTA.get(nombre, {}).get('latitud'), COORDENADAS_BOGOTA.get(nombre, {}).get('longitud')
+            if lat is not None and lon is not None:
+                resultado[nombre] = {'latitud': float(lat), 'longitud': float(lon)}
+        # Asegurar que todos los nodos de COORDENADAS_BOGOTA estén presentes
+        for nombre, coords in COORDENADAS_BOGOTA.items():
+            if nombre not in resultado and validar_nodo(nombre):
+                resultado[nombre] = {'latitud': float(coords['latitud']), 'longitud': float(coords['longitud'])}
+        return resultado
+    except FileNotFoundError:
+        logger.error(f"{EMOJIS['error']} El archivo {archivo_json} no se encuentra. Usando COORDENADAS_BOGOTA.")
+        return {k: {'latitud': float(v['latitud']), 'longitud': float(v['longitud'])} for k, v in COORDENADAS_BOGOTA.items() if validar_nodo(k)}
+    except json.JSONDecodeError:
+        logger.error(f"{EMOJIS['error']} El archivo {archivo_json} no tiene un formato JSON válido. Usando COORDENADAS_BOGOTA.")
+        return {k: {'latitud': float(v['latitud']), 'longitud': float(v['longitud'])} for k, v in COORDENADAS_BOGOTA.items() if validar_nodo(k)}
+    except Exception as e:
+        logger.error(f"{EMOJIS['error']} Error al cargar coordenadas: {e}. Usando COORDENADAS_BOGOTA.")
+        return {k: {'latitud': float(v['latitud']), 'longitud': float(v['longitud'])} for k, v in COORDENADAS_BOGOTA.items() if validar_nodo(k)}
 
 def crear_mapa_bogota() -> GrafoBogota:
     grafo = GrafoBogota()
+    coordenadas = cargar_coordenadas()
 
-    puntos = {
-        "UNIMINUTO_CALLE_80": (4.7050, -74.0900),
-        "PLAZA_LOURDES": (4.5970, -74.0800),
-        "CIUDAD_UNIVERSITARIA": (4.6356, -74.0817),
-        "ZONA_ROSA": (4.6631, -74.0606),
-        "CENTRO_BOGOTA": (4.5981, -74.0758),
-        "RESTREPO": (4.6013, -74.0936),
-        "UNIMINUTO_PERDOMO": (4.5820, -74.1390),
-        "SUBA": (4.7570, -74.0820),
-        "CHAPINERO": (4.6486, -74.0655),
-        "USAQUEN": (4.6951, -74.0308),
-        "KENNEDY": (4.6268, -74.1370),
-        "BOSA": (4.6138, -74.1791),
-        "FONTIBON": (4.6796, -74.1429),
-        "ENGATIVA": (4.7180, -74.1070),
-        "GRAN_ESTACION": (4.6280, -74.1050),
-    }
+    if not coordenadas:
+        logger.warning(f"{EMOJIS['advertencia']} No se cargaron coordenadas. Usando COORDENADAS_BOGOTA.")
+        coordenadas = {k: {'latitud': float(v['latitud']), 'longitud': float(v['longitud'])} for k, v in COORDENADAS_BOGOTA.items() if validar_nodo(k)}
 
-    print("\n" + "=" * 50)
-    print("AGREGANDO NODOS AL GRAFO...")
-    print("=" * 50)
-    for nombre, (lat, lon) in puntos.items():
-        grafo.agregar_nodo_por_datos(nombre, lat, lon)
+    logger.info(f"\n{EMOJIS['mapa']} AGREGANDO NODOS AL GRAFO...")
+    for nombre, coords in coordenadas.items():
+        grafo.agregar_nodo_por_datos(nombre, coords['latitud'], coords['longitud'])
 
-    print("\n" + "=" * 50)
-    print("CREANDO CONEXIONES ENTRE PUNTOS...")
-    print("=" * 50)
-    conexiones = [
-        ("UNIMINUTO_CALLE_80", "PLAZA_LOURDES", 3.2, 15),
-        ("PLAZA_LOURDES", "CIUDAD_UNIVERSITARIA", 2.8, 12),
-        ("CIUDAD_UNIVERSITARIA", "ZONA_ROSA", 4.1, 18),
-        ("ZONA_ROSA", "CENTRO_BOGOTA", 5.6, 25),
-        ("CENTRO_BOGOTA", "RESTREPO", 4.3, 20),
-        ("RESTREPO", "UNIMINUTO_PERDOMO", 6.8, 30),
-        ("UNIMINUTO_CALLE_80", "CENTRO_BOGOTA", 9.2, 35),
-        ("PLAZA_LOURDES", "RESTREPO", 7.5, 28),
-        ("CIUDAD_UNIVERSITARIA", "UNIMINUTO_PERDOMO", 8.9, 32),
-        ("ZONA_ROSA", "CHAPINERO", 2.1, 10),
-        ("CHAPINERO", "USAQUEN", 3.4, 16),
-        ("UNIMINUTO_CALLE_80", "SUBA", 4.8, 22),
-        ("SUBA", "ENGATIVA", 3.2, 18),
-        ("ENGATIVA", "FONTIBON", 4.1, 25),
-        ("FONTIBON", "KENNEDY", 3.7, 20),
-        ("KENNEDY", "BOSA", 2.9, 15),
-        ("BOSA", "UNIMINUTO_PERDOMO", 4.2, 25),
-        ("CENTRO_BOGOTA", "CHAPINERO", 3.8, 18),
-        ("CHAPINERO", "CIUDAD_UNIVERSITARIA", 3.2, 15),
-        ("USAQUEN", "SUBA", 5.2, 28),
-        ("FONTIBON", "UNIMINUTO_CALLE_80", 6.3, 30),
-        ("KENNEDY", "RESTREPO", 5.1, 25),
-        ("UNIMINUTO_CALLE_80", "ENGATIVA", 7.2, 35),
-        ("CENTRO_BOGOTA", "KENNEDY", 8.4, 40),
-        ("UNIMINUTO_CALLE_80", "GRAN_ESTACION", 5.0, 12),
-        ("GRAN_ESTACION", "CIUDAD_UNIVERSITARIA", 3.2, 9),
-    ]
-
-    for origen, destino, dist, tiempo in conexiones:
-        grafo.agregar_arista_bidireccional(origen, destino, dist, tiempo)
+    logger.info(f"\n{EMOJIS['mapa']} CREANDO CONEXIONES ENTRE PUNTOS...")
+    for origen, destino, dist, tiempo in CONEXIONES:
+        if validar_nodo(origen) and validar_nodo(destino):
+            grafo.agregar_arista_bidireccional(origen, destino, dist, tiempo)
+        else:
+            logger.warning(f"{EMOJIS['advertencia']} Conexión inválida ignorada: {origen} -> {destino}")
 
     return grafo
-
-
-# Singleton
-_grafo_instancia = None
-
-def obtener_grafo_bogota():
-    global _grafo_instancia
-    if _grafo_instancia is None:
-        _grafo_instancia = crear_mapa_bogota()
-    return _grafo_instancia
-
-def inicializar_grafo():
-    return obtener_grafo_bogota()
-
 
 if __name__ == "__main__":
     grafo = crear_mapa_bogota()
