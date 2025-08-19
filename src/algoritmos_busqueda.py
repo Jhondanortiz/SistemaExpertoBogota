@@ -1,12 +1,15 @@
 import heapq
 import math
-import json
-import os
-from typing import Dict, Tuple, List, Optional
-from unidecode import unidecode
+from typing import Dict, List, Optional
+import logging
+from utils import EMOJIS, obtener_coordenadas_nodo, validar_nodo, formatear_ruta
+
+# Configuración del logger
+logger = logging.getLogger(__name__)
 
 class ResultadoBusqueda:
-    def __init__(self, exito, ruta=None, distancia_total=0, tiempo_total=0, nodos_explorados=0, mensaje='', detalles=None):
+    def __init__(self, exito: bool, ruta: Optional[List[str]] = None, distancia_total: float = 0.0, 
+                 tiempo_total: float = 0.0, nodos_explorados: int = 0, mensaje: str = '', detalles: Optional[Dict] = None):
         self.exito = exito
         self.ruta = ruta or []
         self.distancia_total = distancia_total
@@ -15,85 +18,47 @@ class ResultadoBusqueda:
         self.mensaje = mensaje
         self.detalles = detalles or {}
 
-def cargar_coordenadas():
-    """Carga las coordenadas desde el archivo JSON, normalizando nombres"""
-    rutas_posibles = [
-        "src/coordenadas_bogota.json",
-        "coordenadas_bogota.json", 
-        "data/coordenadas_bogota.json",
-        os.path.join(os.path.dirname(__file__), "coordenadas_bogota.json"),
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "coordenadas_bogota.json")
-    ]
-    
-    for ruta in rutas_posibles:
-        if os.path.exists(ruta):
-            try:
-                with open(ruta, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                coordenadas = {unidecode(key).upper(): value for key, value in data.items()}
-                print(f"✅ Coordenadas cargadas desde: {ruta}")
-                return coordenadas
-            except Exception as e:
-                print(f"❌ Error cargando {ruta}: {e}")
-                continue
-    
-    print("❌ No se pudo cargar el archivo de coordenadas")
-    return {}
-
 def reconstruir_camino(padres: Dict[str, str], inicio: str, fin: str) -> List[str]:
-    """Reconstruye el camino desde el destino hasta el origen"""
+    """Reconstruye el camino desde el destino hasta el origen."""
     camino = [fin]
-    while camino[-1] != inicio:
-        if camino[-1] not in padres:
-            break
+    while camino[-1] != inicio and camino[-1] in padres:
         camino.append(padres[camino[-1]])
     camino.reverse()
+    if camino[0] != inicio:
+        logger.warning(f"{EMOJIS['advertencia']} No se pudo reconstruir el camino desde {inicio} a {fin}")
+        return []
+    logger.info(f"{EMOJIS['exito']} Camino reconstruido: {formatear_ruta(camino)}")
     return camino
 
-def calcular_heuristica(coord_actual: Tuple[float, float], coord_destino: Tuple[float, float]) -> float:
-    """Calcula la distancia euclidiana entre dos coordenadas"""
+def calcular_heuristica(coord_actual: Dict[str, float], coord_destino: Dict[str, float]) -> float:
+    """Calcula la distancia euclidiana entre dos coordenadas en kilómetros."""
     try:
-        lat1, lon1 = coord_actual
-        lat2, lon2 = coord_destino
-        
-        # Distancia euclidiana simple (para heurística)
-        return math.sqrt((lat2 - lat1)**2 + (lon2 - lon1)**2)
-    except Exception as e:
-        print(f"Error calculando heurística: {e}")
-        return 0.0
+        lat1, lon1 = coord_actual['latitud'], coord_actual['longitud']
+        lat2, lon2 = coord_destino['latitud'], coord_destino['longitud']
+        km_por_grado = 111.139  # Alineado con grafo_bogota.py
+        distancia = math.sqrt((lat2 - lat1)**2 + (lon2 - lon1)**2) * km_por_grado
+        logger.debug(f"{EMOJIS['info']} Heurística calculada: {distancia:.2f} km entre {lat1},{lon1} y {lat2},{lon2}")
+        return distancia
+    except (TypeError, ValueError, KeyError) as e:
+        logger.error(f"{EMOJIS['error']} Error calculando heurística: {e}")
+        return float('inf')
 
-def obtener_coordenadas_nodo(coordenadas: Dict, nodo: str) -> Tuple[float, float]:
-    """Obtiene las coordenadas de un nodo desde el diccionario de coordenadas, normalizando el nombre"""
-    nodo_normalizado = unidecode(nodo).upper()
-    if nodo_normalizado not in coordenadas:
-        raise ValueError(f"Nodo '{nodo}' (normalizado: '{nodo_normalizado}') no encontrado en coordenadas")
-    
-    coord_data = coordenadas[nodo_normalizado]
-    
-    # Manejar diferentes formatos de coordenadas
-    if isinstance(coord_data, dict):
-        if "latitud" in coord_data and "longitud" in coord_data:
-            return float(coord_data["latitud"]), float(coord_data["longitud"])
-        elif "lat" in coord_data and "lon" in coord_data:
-            return float(coord_data["lat"]), float(coord_data["lon"])
-        elif "latitude" in coord_data and "longitude" in coord_data:
-            return float(coord_data["latitude"]), float(coord_data["longitude"])
-    elif isinstance(coord_data, (list, tuple)) and len(coord_data) >= 2:
-        return float(coord_data[0]), float(coord_data[1])
-    
-    raise ValueError(f"Formato de coordenadas inválido para {nodo}: {coord_data}")
+def _dijkstra(grafo: Dict, coordenadas: Dict, inicio: str, fin: str, criterio: str = "distancia") -> ResultadoBusqueda:
+    """Implementación interna del algoritmo Dijkstra."""
+    if criterio not in ["distancia", "tiempo"]:
+        logger.error(f"{EMOJIS['error']} Criterio inválido: {criterio}. Use 'distancia' o 'tiempo'")
+        return ResultadoBusqueda(False, mensaje=f"Criterio '{criterio}' no válido. Use 'distancia' o 'tiempo'.")
 
-def _dijkstra(grafo, coordenadas, inicio, fin, criterio="distancia") -> ResultadoBusqueda:
-    """Implementación interna del algoritmo Dijkstra"""
-    inicio_normalizado = unidecode(inicio).upper()
-    fin_normalizado = unidecode(fin).upper()
-    
-    if inicio_normalizado not in grafo or fin_normalizado not in grafo:
+    if not (validar_nodo(inicio) and validar_nodo(fin)):
         return ResultadoBusqueda(False, mensaje=f"Nodo de inicio '{inicio}' o fin '{fin}' no válido.")
 
-    cola = [(0, inicio_normalizado)]
+    if inicio not in grafo or fin not in grafo:
+        return ResultadoBusqueda(False, mensaje=f"Nodo de inicio '{inicio}' o fin '{fin}' no encontrado en el grafo.")
+
+    cola = [(0, inicio)]
     visitados = set()
-    costos = {inicio_normalizado: 0}
+    costos = {nodo: float('inf') for nodo in grafo}
+    costos[inicio] = 0
     padres = {}
     nodos_explorados = 0
 
@@ -104,305 +69,208 @@ def _dijkstra(grafo, coordenadas, inicio, fin, criterio="distancia") -> Resultad
         visitados.add(nodo_actual)
         nodos_explorados += 1
 
-        if nodo_actual == fin_normalizado:
-            ruta = reconstruir_camino(padres, inicio_normalizado, fin_normalizado)
+        if nodo_actual == fin:
+            ruta = reconstruir_camino(padres, inicio, fin)
+            if not ruta:
+                return ResultadoBusqueda(False, mensaje=f"No se encontró una ruta de {inicio} a {fin}.")
             distancia_total = sum(
-                next((d for (v, d, t) in grafo[u] if v == vtx), 0)
+                next((d for (v, d, t) in grafo[u] if v == vtx), 0.0)
                 for u, vtx in zip(ruta[:-1], ruta[1:])
             )
             tiempo_total = sum(
-                next((t for (v, d, t) in grafo[u] if v == vtx), 0)
+                next((t for (v, d, t) in grafo[u] if v == vtx), 0.0)
                 for u, vtx in zip(ruta[:-1], ruta[1:])
             )
+            logger.info(f"{EMOJIS['ruta']} Ruta calculada por Dijkstra: {formatear_ruta(ruta)}, "
+                        f"Distancia: {distancia_total:.2f} km, Tiempo: {tiempo_total:.2f} min")
             return ResultadoBusqueda(
-                True, ruta, distancia_total, tiempo_total, nodos_explorados, 
-                "Ruta encontrada exitosamente.", 
+                True, ruta, distancia_total, tiempo_total, nodos_explorados,
+                "Ruta encontrada exitosamente.",
                 {"algoritmo": "Dijkstra", "criterio": criterio}
             )
 
         for vecino, distancia, tiempo in grafo.get(nodo_actual, []):
             nuevo_costo = costo_actual + (distancia if criterio == "distancia" else tiempo)
-            if vecino not in costos or nuevo_costo < costos[vecino]:
+            if nuevo_costo < costos[vecino]:
                 costos[vecino] = nuevo_costo
                 padres[vecino] = nodo_actual
                 heapq.heappush(cola, (nuevo_costo, vecino))
 
     return ResultadoBusqueda(False, mensaje=f"No se encontró una ruta de {inicio} a {fin}.")
 
-def _a_estrella(grafo, coordenadas, inicio, fin, criterio="distancia") -> ResultadoBusqueda:
-    """Implementación interna del algoritmo A*, con normalización de nombres"""
-    inicio_normalizado = unidecode(inicio).upper()
-    fin_normalizado = unidecode(fin).upper()
-    
-    if inicio_normalizado not in grafo or fin_normalizado not in grafo:
-        return ResultadoBusqueda(False, mensaje=f"Nodo de inicio '{inicio}' o fin '{fin}' no válido.")
-    
-    # Verificar y obtener coordenadas
-    try:
-        coord_inicio = obtener_coordenadas_nodo(coordenadas, inicio_normalizado)
-        coord_fin = obtener_coordenadas_nodo(coordenadas, fin_normalizado)
-    except Exception as e:
-        print(f"Error en a_estrella: {e}")
-        return ResultadoBusqueda(False, mensaje=f"Error obteniendo coordenadas: {e}")
+def _a_estrella(grafo: Dict, coordenadas: Dict, inicio: str, fin: str, criterio: str = "distancia") -> ResultadoBusqueda:
+    """Implementación interna del algoritmo A*."""
+    if criterio not in ["distancia", "tiempo"]:
+        logger.error(f"{EMOJIS['error']} Criterio inválido: {criterio}. Use 'distancia' o 'tiempo'")
+        return ResultadoBusqueda(False, mensaje=f"Criterio '{criterio}' no válido. Use 'distancia' o 'tiempo'.")
 
-    cola = [(0, inicio_normalizado)]
+    if not (validar_nodo(inicio) and validar_nodo(fin)):
+        return ResultadoBusqueda(False, mensaje=f"Nodo de inicio '{inicio}' o fin '{fin}' no válido.")
+
+    if inicio not in grafo or fin not in grafo:
+        return ResultadoBusqueda(False, mensaje=f"Nodo de inicio '{inicio}' o fin '{fin}' no encontrado en el grafo.")
+
+    coord_inicio = obtener_coordenadas_nodo(inicio)
+    coord_fin = obtener_coordenadas_nodo(fin)
+    if not coord_inicio or not coord_fin:
+        logger.warning(f"{EMOJIS['advertencia']} Coordenadas no encontradas para {inicio} o {fin}, ejecutando Dijkstra como fallback")
+        return _dijkstra(grafo, coordenadas, inicio, fin, criterio)
+
+    cola = [(0, inicio)]
     visitados = set()
-    costos = {inicio_normalizado: 0}
+    costos = {nodo: float('inf') for nodo in grafo}
+    costos[inicio] = 0
     padres = {}
     nodos_explorados = 0
 
     while cola:
-        _, nodo_actual = heapq.heappop(cola)
+        costo_estimado, nodo_actual = heapq.heappop(cola)
         if nodo_actual in visitados:
             continue
         visitados.add(nodo_actual)
         nodos_explorados += 1
 
-        if nodo_actual == fin_normalizado:
-            ruta = reconstruir_camino(padres, inicio_normalizado, fin_normalizado)
+        if nodo_actual == fin:
+            ruta = reconstruir_camino(padres, inicio, fin)
+            if not ruta:
+                return ResultadoBusqueda(False, mensaje=f"No se encontró una ruta de {inicio} a {fin}.")
             distancia_total = sum(
-                next((d for (v, d, t) in grafo[u] if v == vtx), 0)
+                next((d for (v, d, t) in grafo[u] if v == vtx), 0.0)
                 for u, vtx in zip(ruta[:-1], ruta[1:])
             )
             tiempo_total = sum(
-                next((t for (v, d, t) in grafo[u] if v == vtx), 0)
+                next((t for (v, d, t) in grafo[u] if v == vtx), 0.0)
                 for u, vtx in zip(ruta[:-1], ruta[1:])
             )
+            logger.info(f"{EMOJIS['ruta']} Ruta calculada por A*: {formatear_ruta(ruta)}, "
+                        f"Distancia: {distancia_total:.2f} km, Tiempo: {tiempo_total:.2f} min")
             return ResultadoBusqueda(
-                True, ruta, distancia_total, tiempo_total, nodos_explorados, 
-                "Ruta encontrada exitosamente.", 
+                True, ruta, distancia_total, tiempo_total, nodos_explorados,
+                "Ruta encontrada exitosamente.",
                 {"algoritmo": "A*", "criterio": criterio}
             )
 
         for vecino, distancia, tiempo in grafo.get(nodo_actual, []):
             nuevo_costo = costos[nodo_actual] + (distancia if criterio == "distancia" else tiempo)
-            
-            if vecino not in costos or nuevo_costo < costos[vecino]:
+            if nuevo_costo < costos[vecino]:
                 costos[vecino] = nuevo_costo
                 padres[vecino] = nodo_actual
-                
-                try:
-                    # Obtener coordenadas del vecino para calcular heurística
-                    coord_vecino = obtener_coordenadas_nodo(coordenadas, vecino)
+                coord_vecino = obtener_coordenadas_nodo(vecino)
+                if not coord_vecino:
+                    logger.warning(f"{EMOJIS['advertencia']} Sin coordenadas para {vecino}, usando costo sin heurística")
+                    costo_estimado = nuevo_costo
+                else:
                     heuristica = calcular_heuristica(coord_vecino, coord_fin)
-                    
-                    # Ajustar heurística según el criterio
                     if criterio == "tiempo":
-                        heuristica *= 2.5  # Convertir distancia a tiempo aproximado
-                    elif criterio == "distancia":
-                        heuristica *= 100  # Convertir a kilómetros aproximados
-                    
+                        heuristica *= 2.5 / 111.139  # Aproximación: km a minutos (ajustado para tiempos realistas)
                     costo_estimado = nuevo_costo + heuristica
-                    heapq.heappush(cola, (costo_estimado, vecino))
-                    
-                except Exception as e:
-                    # Si hay error con heurística, usar como Dijkstra
-                    print(f"Warning: Error calculando heurística para {vecino}: {e}")
-                    heapq.heappush(cola, (nuevo_costo, vecino))
+                heapq.heappush(cola, (costo_estimado, vecino))
 
     return ResultadoBusqueda(False, mensaje=f"No se encontró una ruta de {inicio} a {fin}.")
 
 class BuscadorRutas:
-    """
-    Clase principal para buscar rutas usando diferentes algoritmos
-    Compatible con el sistema de validación
-    """
+    """Clase principal para buscar rutas usando diferentes algoritmos."""
     
-    def __init__(self, grafo):
-        """
-        Inicializa el buscador con un grafo
-        """
+    def __init__(self, grafo, coordenadas: Dict):
+        """Inicializa el buscador con un grafo y coordenadas pre-cargadas."""
         self.grafo = grafo
-        # Cargar coordenadas desde archivo JSON
-        self.coordenadas = cargar_coordenadas()
-        
-        # Si no se pudieron cargar desde archivo, intentar desde el grafo
-        if not self.coordenadas:
-            self.coordenadas = self._obtener_coordenadas_desde_grafo()
+        self.coordenadas = coordenadas
+        self.grafo_dict = self._convertir_grafo_a_dict()
 
-    def _obtener_coordenadas_desde_grafo(self):
-        """Extrae las coordenadas del grafo de Bogotá como fallback, normalizando nombres"""
-        coordenadas = {}
+    def _convertir_grafo_a_dict(self) -> Dict:
+        """Convierte el grafo de Bogotá al formato requerido por los algoritmos."""
         try:
-            if hasattr(self.grafo, 'nodos'):
-                for nombre, nodo in self.grafo.nodos.items():
-                    nombre_normalizado = unidecode(nombre).upper()
-                    if hasattr(nodo, 'latitud') and hasattr(nodo, 'longitud'):
-                        coordenadas[nombre_normalizado] = {
-                            "latitud": nodo.latitud,
-                            "longitud": nodo.longitud
-                        }
-            print(f"✅ Coordenadas extraídas del grafo: {len(coordenadas)} nodos")
+            grafo_dict = {}
+            for nodo, aristas in self.grafo.grafo.items():
+                if not validar_nodo(nodo):
+                    logger.warning(f"{EMOJIS['advertencia']} Nodo inválido en grafo: {nodo}")
+                    continue
+                grafo_dict[nodo] = [
+                    (arista.destino, arista.distancia, arista.tiempo)
+                    for arista in aristas if validar_nodo(arista.destino)
+                ]
+            logger.info(f"{EMOJIS['exito']} Grafo convertido con {len(grafo_dict)} nodos")
+            return grafo_dict
         except Exception as e:
-            print(f"❌ Error extrayendo coordenadas del grafo: {e}")
-        
-        return coordenadas
-
-    def _convertir_grafo_a_dict(self):
-        """
-        Convierte el grafo de Bogotá al formato requerido por los algoritmos, normalizando nombres
-        """
-        try:
-            if hasattr(self.grafo, 'grafo') and self.grafo.grafo:
-                # Formato: Dict[str, List[Tuple[destino, distancia, tiempo]]]
-                grafo_dict = {}
-                for nodo, aristas in self.grafo.grafo.items():
-                    nodo_normalizado = unidecode(nodo).upper()
-                    grafo_dict[nodo_normalizado] = []
-                    for arista in aristas:
-                        if hasattr(arista, 'destino') and hasattr(arista, 'distancia') and hasattr(arista, 'tiempo'):
-                            destino_normalizado = unidecode(arista.destino).upper()
-                            grafo_dict[nodo_normalizado].append((destino_normalizado, arista.distancia, arista.tiempo))
-                return grafo_dict
-            elif hasattr(self.grafo, 'adyacencia') and self.grafo.adyacencia:
-                # Convertir formato alternativo del grafo
-                grafo_dict = {}
-                for nodo, vecinos in self.grafo.adyacencia.items():
-                    nodo_normalizado = unidecode(nodo).upper()
-                    grafo_dict[nodo_normalizado] = []
-                    for vecino, datos in vecinos.items():
-                        vecino_normalizado = unidecode(vecino).upper()
-                        distancia = datos.get('distancia', 0)
-                        tiempo = datos.get('tiempo', 0)
-                        grafo_dict[nodo_normalizado].append((vecino_normalizado, distancia, tiempo))
-                return grafo_dict
-            else:
-                print("❌ Formato de grafo no reconocido")
-                return {}
-        except Exception as e:
-            print(f"❌ Error convirtiendo grafo: {e}")
+            logger.error(f"{EMOJIS['error']} Error convirtiendo grafo: {e}")
             return {}
 
     def dijkstra(self, origen: str, destino: str, criterio: str = 'distancia') -> ResultadoBusqueda:
-        """
-        Implementa el algoritmo de Dijkstra - MÉTODO REQUERIDO POR VALIDACIÓN
-        """
+        """Implementa el algoritmo de Dijkstra."""
+        if not (validar_nodo(origen) and validar_nodo(destino)):
+            return ResultadoBusqueda(False, mensaje=f"Nodo origen '{origen}' o destino '{destino}' no válido.")
         try:
-            # Convertir el grafo al formato requerido
-            grafo_dict = self._convertir_grafo_a_dict()
-            
-            if not grafo_dict:
-                return ResultadoBusqueda(False, mensaje="Formato de grafo no compatible.")
-            
-            # Normalizar nombres de nodos
-            origen_normalizado = unidecode(origen).upper()
-            destino_normalizado = unidecode(destino).upper()
-            
-            # Verificar que los nodos existen
-            if origen_normalizado not in grafo_dict:
-                return ResultadoBusqueda(False, mensaje=f"Nodo origen '{origen}' no encontrado.")
-            if destino_normalizado not in grafo_dict:
-                return ResultadoBusqueda(False, mensaje=f"Nodo destino '{destino}' no encontrado.")
-            
-            resultado = _dijkstra(grafo_dict, self.coordenadas, origen_normalizado, destino_normalizado, criterio)
+            resultado = _dijkstra(self.grafo_dict, self.coordenadas, origen, destino, criterio)
+            if resultado.exito:
+                logger.info(f"{EMOJIS['exito']} Ruta Dijkstra: {formatear_ruta(resultado.ruta)}, "
+                            f"Distancia: {resultado.distancia_total:.2f} km, Tiempo: {resultado.tiempo_total:.2f} min")
             return resultado
-                
         except Exception as e:
-            print(f"Error en dijkstra: {e}")
-            return ResultadoBusqueda(False, mensaje=f"Error en dijkstra: {e}")
+            logger.error(f"{EMOJIS['error']} Error en Dijkstra: {e}")
+            return ResultadoBusqueda(False, mensaje=f"Error en Dijkstra: {e}")
 
     def a_estrella(self, origen: str, destino: str, criterio: str = 'distancia') -> ResultadoBusqueda:
-        """
-        Implementa el algoritmo A* - MÉTODO REQUERIDO POR VALIDACIÓN
-        """
+        """Implementa el algoritmo A*."""
+        if not (validar_nodo(origen) and validar_nodo(destino)):
+            return ResultadoBusqueda(False, mensaje=f"Nodo origen '{origen}' o destino '{destino}' no válido.")
         try:
-            # Convertir el grafo al formato requerido
-            grafo_dict = self._convertir_grafo_a_dict()
-            
-            if not grafo_dict:
-                return ResultadoBusqueda(False, mensaje="Formato de grafo no compatible.")
-            
-            # Normalizar nombres de nodos
-            origen_normalizado = unidecode(origen).upper()
-            destino_normalizado = unidecode(destino).upper()
-            
-            print("Nodos en coordenadas:", list(self.coordenadas.keys()))
-            print("Nodos en grafo:", list(grafo_dict.keys()))
-            
-            # Verificar que los nodos existen
-            if origen_normalizado not in grafo_dict:
-                return ResultadoBusqueda(False, mensaje=f"Nodo origen '{origen}' no encontrado.")
-            if destino_normalizado not in grafo_dict:
-                return ResultadoBusqueda(False, mensaje=f"Nodo destino '{destino}' no encontrado.")
-            
-            # Verificar que las coordenadas están disponibles
             if not self.coordenadas:
-                return ResultadoBusqueda(False, mensaje="No hay coordenadas disponibles para A*.")
-            
-            if origen_normalizado not in self.coordenadas:
-                return ResultadoBusqueda(False, mensaje=f"Coordenadas no encontradas para '{origen}'.")
-            if destino_normalizado not in self.coordenadas:
-                return ResultadoBusqueda(False, mensaje=f"Coordenadas no encontradas para '{destino}'.")
-            
-            resultado = _a_estrella(grafo_dict, self.coordenadas, origen_normalizado, destino_normalizado, criterio)
+                logger.warning(f"{EMOJIS['advertencia']} No hay coordenadas disponibles, ejecutando Dijkstra como fallback")
+                return self.dijkstra(origen, destino, criterio)
+            resultado = _a_estrella(self.grafo_dict, self.coordenadas, origen, destino, criterio)
+            if resultado.exito:
+                logger.info(f"{EMOJIS['exito']} Ruta A*: {formatear_ruta(resultado.ruta)}, "
+                            f"Distancia: {resultado.distancia_total:.2f} km, Tiempo: {resultado.tiempo_total:.2f} min")
             return resultado
-                
         except Exception as e:
-            print(f"Error en a_estrella: {e}")
-            return ResultadoBusqueda(False, mensaje=f"Error en a_estrella: {e}")
+            logger.error(f"{EMOJIS['error']} Error en A*: {e}")
+            return ResultadoBusqueda(False, mensaje=f"Error en A*: {e}")
 
-    def buscar(self, inicio, fin, algoritmo="dijkstra", criterio="distancia", coordenadas=None):
-        """
-        Método de búsqueda genérico (mantiene compatibilidad con código existente)
-        """
-        if coordenadas:
+    def buscar(self, inicio: str, fin: str, algoritmo: str = "dijkstra", criterio: str = "distancia", coordenadas: Optional[Dict] = None) -> ResultadoBusqueda:
+        """Método de búsqueda genérico."""
+        if coordenadas is not None:
             self.coordenadas = coordenadas
-            
-        # Usar el método de conversión centralizado
-        grafo_dict = self._convertir_grafo_a_dict()
+            self.grafo_dict = self._convertir_grafo_a_dict()
         
-        if not grafo_dict:
-            return ResultadoBusqueda(False, mensaje="Formato de grafo no compatible.")
-        
-        # Normalizar nombres
-        inicio_normalizado = unidecode(inicio).upper()
-        fin_normalizado = unidecode(fin).upper()
-        
+        algoritmo = algoritmo.lower()
         if algoritmo == "dijkstra":
-            return _dijkstra(grafo_dict, self.coordenadas, inicio_normalizado, fin_normalizado, criterio)
-        elif algoritmo == "a*" or algoritmo == "a_estrella":
-            return _a_estrella(grafo_dict, self.coordenadas, inicio_normalizado, fin_normalizado, criterio)
-        else:
-            return ResultadoBusqueda(False, mensaje=f"Algoritmo '{algoritmo}' no reconocido.")
+            return self.dijkstra(inicio, fin, criterio)
+        elif algoritmo in ["a*", "a_estrella"]:
+            return self.a_estrella(inicio, fin, criterio)
+        logger.error(f"{EMOJIS['error']} Algoritmo '{algoritmo}' no reconocido")
+        return ResultadoBusqueda(False, mensaje=f"Algoritmo '{algoritmo}' no reconocido.")
 
     def comparar_algoritmos(self, origen: str, destino: str, criterio: str = 'distancia') -> Dict:
-        """
-        Compara el rendimiento de ambos algoritmos
-        """
+        """Compara el rendimiento de ambos algoritmos."""
         import time
         
-        # Normalizar nombres
-        origen_normalizado = unidecode(origen).upper()
-        destino_normalizado = unidecode(destino).upper()
-        
-        # Ejecutar Dijkstra
         inicio = time.time()
-        resultado_dijkstra = self.dijkstra(origen_normalizado, destino_normalizado, criterio)
+        resultado_dijkstra = self.dijkstra(origen, destino, criterio)
         tiempo_dijkstra = time.time() - inicio
         
-        # Ejecutar A*
         inicio = time.time()
-        resultado_a_estrella = self.a_estrella(origen_normalizado, destino_normalizado, criterio)
+        resultado_a_estrella = self.a_estrella(origen, destino, criterio)
         tiempo_a_estrella = time.time() - inicio
         
+        logger.info(f"{EMOJIS['info']} Comparación: Dijkstra ({tiempo_dijkstra*1000:.2f} ms), A* ({tiempo_a_estrella*1000:.2f} ms)")
         return {
             'dijkstra': {
                 'resultado': resultado_dijkstra,
-                'tiempo_ejecucion': tiempo_dijkstra * 1000  # milisegundos
+                'tiempo_ejecucion': tiempo_dijkstra * 1000
             },
             'a_estrella': {
                 'resultado': resultado_a_estrella,
-                'tiempo_ejecucion': tiempo_a_estrella * 1000  # milisegundos
+                'tiempo_ejecucion': tiempo_a_estrella * 1000
             }
         }
 
-    def obtener_estadisticas(self):
-        """Obtiene estadísticas del sistema de búsqueda"""
-        grafo_dict = self._convertir_grafo_a_dict()
-        
-        return {
-            'nodos_grafo': len(grafo_dict),
+    def obtener_estadisticas(self) -> Dict:
+        """Obtiene estadísticas del sistema de búsqueda."""
+        estadisticas = {
+            'nodos_grafo': len(self.grafo_dict),
             'nodos_con_coordenadas': len(self.coordenadas),
-            'coordenadas_disponibles': list(self.coordenadas.keys())[:10],  # Primeros 10
-            'grafo_disponible': bool(grafo_dict)
+            'coordenadas_disponibles': list(self.coordenadas.keys())[:10],
+            'grafo_disponible': bool(self.grafo_dict)
         }
+        logger.info(f"{EMOJIS['info']} Estadísticas: {estadisticas}")
+        return estadisticas
